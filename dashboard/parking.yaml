@@ -1,0 +1,296 @@
+# Parking dashboard — drives the car_parker integration.
+#
+# Requires HACS custom:button-card.
+#
+# Deployed at /config/dashboards/parking.yaml on the HA host.
+# Registered in /config/configuration.yaml under lovelace.dashboards.car-parker.
+
+title: Parking
+
+# ── Reusable button-card templates ─────────────────────────────────────────
+button_card_templates:
+
+  # A single candidate block (one of up to 5). Hidden if no candidate at idx.
+  block_candidate:
+    entity: sensor.car_parker_status
+    show_icon: false
+    show_state: false
+    name: |
+      [[[
+        const c = entity.attributes?.candidates?.[variables.idx];
+        if (!c) return '';
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:baseline;width:100%;">
+            <div>
+              <div style="font-weight:bold;font-size:17px;">${c.street}</div>
+              <div style="font-size:13px;opacity:0.7;margin-top:2px;">${c.limits}</div>
+            </div>
+            <div style="font-size:12px;opacity:0.6;white-space:nowrap;margin-left:12px;">${c.distance_m}m</div>
+          </div>`;
+      ]]]
+    styles:
+      card:
+        - padding: 14px 18px
+        - min-height: 0
+        - height: auto
+        - text-align: left
+        - display: |
+            [[[ return entity.attributes?.candidates?.[variables.idx] ? 'block' : 'none'; ]]]
+      name:
+        - text-align: left
+        - margin: 0
+        - padding: 0
+        - width: 100%
+    tap_action:
+      action: call-service
+      service: car_parker.pick_block
+      service_data:
+        street: |
+          [[[ return entity.attributes?.candidates?.[variables.idx]?.street; ]]]
+        limits: |
+          [[[ return entity.attributes?.candidates?.[variables.idx]?.limits; ]]]
+
+  # A single side button. Hidden if `variables.side` isn't in candidate_sides.
+  side_button:
+    entity: sensor.car_parker_status
+    show_state: false
+    name: |
+      [[[ return variables.side; ]]]
+    icon: |
+      [[[
+        const arrows = {North: 'mdi:arrow-up-bold', South: 'mdi:arrow-down-bold',
+                        East: 'mdi:arrow-right-bold', West: 'mdi:arrow-left-bold'};
+        return arrows[variables.side];
+      ]]]
+    styles:
+      card:
+        - padding: 16px
+        - display: |
+            [[[
+              const sides = entity.attributes?.candidate_sides || [];
+              return sides.includes(variables.side) ? 'block' : 'none';
+            ]]]
+      icon:
+        - width: 48px
+        - height: 48px
+    tap_action:
+      action: call-service
+      service: car_parker.confirm_side
+      service_data:
+        side: |
+          [[[ return variables.side; ]]]
+
+# ── Views ──────────────────────────────────────────────────────────────────
+views:
+  - title: Parking
+    path: parking
+    icon: mdi:car
+    type: sections
+    max_columns: 2
+    sections:
+
+      # ── Header (always visible) ────────────────────────────────────────
+      - type: grid
+        cards:
+          - type: markdown
+            content: |
+              # 🚗 Parking
+
+              **Status:** {{ states('sensor.car_parker_status') | upper }}{% if states('sensor.car_parker_urgency') not in ('safe', 'awaiting_side', 'unknown') %} — ⚠️ **{{ states('sensor.car_parker_urgency') | upper }}**{% endif %}
+
+      # ── EMPTY state ────────────────────────────────────────────────────
+      - type: grid
+        visibility:
+          - condition: state
+            entity: sensor.car_parker_status
+            state: empty
+        cards:
+          - type: markdown
+            content: |
+              ### Car is not parked
+
+              Pull up to a spot, tap **Park here**, then pick the block
+              you're on and which side.
+          - type: button
+            name: Park here (use my GPS)
+            icon: mdi:car-arrow-right
+            icon_height: 64px
+            tap_action:
+              action: call-service
+              service: car_parker.park_here
+              data:
+                entity_id: person.YOUR_NAME  # replace with your person entity
+
+      # ── PENDING / pick_block ───────────────────────────────────────────
+      - type: grid
+        visibility:
+          - condition: state
+            entity: sensor.car_parker_status
+            state: pending
+          - condition: state
+            entity: sensor.car_parker_status
+            attribute: stage
+            state: pick_block
+        cards:
+          - type: markdown
+            content: |
+              ### 📍 Which block are you on?
+
+              GPS thinks you're near these spots — tap the one that matches.
+
+              {% set tl = state_attr('sensor.car_parker_status', 'time_limit') %}
+              {% if tl and tl.hrlimit %}
+              **Nearby time limit:** {{ tl.hrlimit | int }}-hour{% if tl.from_time and tl.to_time %} {{ tl.from_time }}–{{ tl.to_time }}{% endif %}{% if tl.days %} ({{ tl.days }}){% endif %}
+              {% endif %}
+          - type: custom:button-card
+            template: block_candidate
+            variables: { idx: 0 }
+          - type: custom:button-card
+            template: block_candidate
+            variables: { idx: 1 }
+          - type: custom:button-card
+            template: block_candidate
+            variables: { idx: 2 }
+          - type: custom:button-card
+            template: block_candidate
+            variables: { idx: 3 }
+          - type: custom:button-card
+            template: block_candidate
+            variables: { idx: 4 }
+          - type: button
+            name: Cancel
+            icon: mdi:close
+            tap_action:
+              action: call-service
+              service: car_parker.clear
+
+      # ── PENDING / pick_side ────────────────────────────────────────────
+      - type: grid
+        visibility:
+          - condition: state
+            entity: sensor.car_parker_status
+            state: pending
+          - condition: state
+            entity: sensor.car_parker_status
+            attribute: stage
+            state: pick_side
+        cards:
+          - type: markdown
+            content: |
+              ### Which side?
+
+              {% set cb = state_attr('sensor.car_parker_status', 'chosen_block') %}
+              {% if cb %}
+              **Block:** {{ cb.street }} — {{ cb.limits }}
+              {% endif %}
+          - type: custom:button-card
+            template: side_button
+            variables: { side: North }
+          - type: custom:button-card
+            template: side_button
+            variables: { side: South }
+          - type: custom:button-card
+            template: side_button
+            variables: { side: East }
+          - type: custom:button-card
+            template: side_button
+            variables: { side: West }
+          - type: button
+            name: Cancel
+            icon: mdi:close
+            tap_action:
+              action: call-service
+              service: car_parker.clear
+
+      # ── PARKED state: full status display ──────────────────────────────
+      - type: grid
+        visibility:
+          - condition: state
+            entity: sensor.car_parker_status
+            state: parked
+        cards:
+          - type: markdown
+            content: |
+              {% set loc = state_attr('sensor.parked_location', 'street') %}
+              {% set side = state_attr('sensor.parked_location', 'side') %}
+              {% set block = state_attr('sensor.parked_location', 'block_limits') %}
+              ## 📍 {{ side }} side of {{ loc }}
+              {% if block %}between {{ block | replace('  -  ', ' and ') }}{% endif %}
+          - type: tile
+            entity: sensor.next_street_sweep
+            name: Next sweep
+            icon: mdi:broom
+          - type: tile
+            entity: sensor.next_street_sweep_label
+            name: When
+            icon: mdi:calendar-clock
+          - type: tile
+            entity: sensor.parking_time_limit
+            name: Time limit
+            icon: mdi:timer-sand
+            visibility:
+              - condition: template
+                value_template: "{{ states('sensor.parking_time_limit') not in ('unknown', 'unavailable', 'none', '') }}"
+
+      # ── PARKED: urgency callout + actions ──────────────────────────────
+      - type: grid
+        visibility:
+          - condition: state
+            entity: sensor.car_parker_status
+            state: parked
+        cards:
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: binary_sensor.move_car_now
+                state: 'on'
+            card:
+              type: markdown
+              content: |
+                ## 🚨 MOVE CAR NOW 🚨
+
+                Sweeping is happening or imminent.
+          - type: markdown
+            content: |
+              {% set lat = state_attr('sensor.car_parker_status', 'lat') %}
+              {% set lng = state_attr('sensor.car_parker_status', 'lng') %}
+              {% if lat and lng %}
+              📍 [Open in Maps](https://maps.apple.com/?q={{ lat }},{{ lng }})
+              {% endif %}
+          - type: button
+            name: Clear parking
+            icon: mdi:car-off
+            tap_action:
+              action: call-service
+              service: car_parker.clear
+              confirmation:
+                text: Forget the current parking spot?
+
+      # ── Manual entry (always visible) ──────────────────────────────────
+      - type: grid
+        cards:
+          - type: markdown
+            content: |
+              ### ✍️ Manual entry
+
+              Type a location like _"Anza between 7th and 8th, north side"_ or
+              _"north side of 9th Ave between Cabrillo and Fulton"_.
+              Submit overrides any current parked state.
+          - type: entities
+            entities:
+              - entity: input_text.car_parker_manual_text
+                name: Location
+          - type: custom:button-card
+            name: Submit manual park
+            icon: mdi:keyboard-return
+            tap_action:
+              action: call-service
+              service: car_parker.park_manual
+              service_data:
+                text: |
+                  [[[ return states['input_text.car_parker_manual_text'].state; ]]]
+            # After submitting, clear the input. Sequential tap_actions need a
+            # script; for now the user clears it themselves with the field's X.
+            styles:
+              card:
+                - padding: 14px

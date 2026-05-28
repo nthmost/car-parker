@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Data files — populated by running backend/sync.py
+backend/data/street_sweeping_sf.json
+backend/data/parking_regulations_sf.geojson
+backend/data/sync_metadata.json
+
+# Runtime state — never commit parking location
+backend/data/parking_state.json

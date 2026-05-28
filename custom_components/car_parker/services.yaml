@@ -1,0 +1,110 @@
+park_here:
+  name: Park here (GPS)
+  description: >
+    Capture the current location as a tentative park. Returns candidate
+    sides — use the confirm_side service to finalize.
+  fields:
+    latitude:
+      name: Latitude
+      description: Latitude in decimal degrees.
+      example: 37.77716
+      selector:
+        number:
+          min: -90
+          max: 90
+          mode: box
+    longitude:
+      name: Longitude
+      description: Longitude in decimal degrees.
+      example: -122.46453
+      selector:
+        number:
+          min: -180
+          max: 180
+          mode: box
+    entity_id:
+      name: Entity
+      description: >
+        Alternative to lat/lng — a person or device_tracker whose
+        latitude/longitude attributes will be used.
+      example: person.your_name
+      selector:
+        entity:
+          domain:
+            - person
+            - device_tracker
+
+pick_block:
+  name: Pick block
+  description: >
+    Advance a pending park from stage=pick_block to stage=pick_side by
+    choosing which nearby block you're actually on. The block must be one
+    of the candidates returned by /api/park/tentative.
+  fields:
+    street:
+      name: Street
+      description: Street name as returned in candidates.
+      required: true
+      example: 08th Ave
+      selector:
+        text:
+    limits:
+      name: Block limits
+      description: Cross-street limits as returned in candidates.
+      example: Geary Blvd  -  Anza St
+      selector:
+        text:
+
+confirm_side:
+  name: Confirm side of street
+  description: >
+    Finalize a pending park (stage=pick_side) by choosing the side of the
+    street. Must be one of the sides returned for the chosen block.
+  fields:
+    side:
+      name: Side
+      description: Which side of the street the car is on.
+      required: true
+      example: North
+      selector:
+        select:
+          options:
+            - North
+            - South
+            - East
+            - West
+
+park_manual:
+  name: Park (manual entry)
+  description: Park using free text or structured street/block/side input.
+  fields:
+    text:
+      name: Free text
+      description: e.g. "Anza between 7th and 8th, north side"
+      example: Anza between 7th and 8th
+      selector:
+        text:
+    street:
+      name: Street
+      example: Anza St
+      selector:
+        text:
+    block:
+      name: Block limits
+      example: 07th Ave  -  08th Ave
+      selector:
+        text:
+    side:
+      name: Side
+      example: North
+      selector:
+        select:
+          options:
+            - North
+            - South
+            - East
+            - West
+
+clear:
+  name: Clear parking state
+  description: Forget the currently parked location.

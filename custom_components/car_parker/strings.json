@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Car Parker",
+        "description": "Connect to the car-parker API.",
+        "data": {
+          "base_url": "API base URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the car-parker API at that URL."
+    },
+    "abort": {
+      "already_configured": "This car-parker endpoint is already configured."
+    }
+  }
+}
