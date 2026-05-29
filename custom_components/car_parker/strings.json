@@ -3,17 +3,14 @@
     "step": {
       "user": {
         "title": "Car Parker",
-        "description": "Connect to the car-parker API.",
-        "data": {
-          "base_url": "API base URL"
-        }
+        "description": "{data_status}"
       }
     },
     "error": {
-      "cannot_connect": "Could not reach the car-parker API at that URL."
+      "download_failed": "Failed to download SFMTA data. Check your internet connection and try again."
     },
     "abort": {
-      "already_configured": "This car-parker endpoint is already configured."
+      "already_configured": "Car Parker is already configured."
     }
   }
 }

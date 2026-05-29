@@ -108,3 +108,9 @@ park_manual:
 clear:
   name: Clear parking state
   description: Forget the currently parked location.
+
+sync_data:
+  name: Sync SFMTA data
+  description: >
+    Re-download the SFMTA street sweeping and parking regulations data
+    from DataSF. Run monthly to stay current with schedule changes.

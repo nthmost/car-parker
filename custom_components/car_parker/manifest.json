@@ -1,12 +1,10 @@
 {
   "domain": "car_parker",
   "name": "Car Parker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "documentation": "https://github.com/nthmost/car-parker",
   "issue_tracker": "https://github.com/nthmost/car-parker/issues",
   "codeowners": ["@nthmost"],
   "config_flow": true,
-  "dependencies": [],
-  "requirements": [],
-  "iot_class": "local_polling"
+  "iot_class": "calculated"
 }

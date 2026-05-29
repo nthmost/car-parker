@@ -1,8 +1,8 @@
 """Car Parker integration — SF street-sweeping reminder."""
-
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
@@ -11,9 +11,8 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import CarParkerApiClient, CarParkerApiError
+from . import downloader
 from .const import (
     ATTR_BLOCK,
     ATTR_ENTITY_ID,
@@ -23,13 +22,13 @@ from .const import (
     ATTR_SIDE,
     ATTR_STREET,
     ATTR_TEXT,
-    CONF_BASE_URL,
     DOMAIN,
     SERVICE_CLEAR,
     SERVICE_CONFIRM_SIDE,
     SERVICE_PARK_HERE,
     SERVICE_PARK_MANUAL,
     SERVICE_PICK_BLOCK,
+    SERVICE_SYNC_DATA,
 )
 from .coordinator import CarParkerCoordinator
 
@@ -39,14 +38,12 @@ PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR]
 
 PARK_HERE_SCHEMA = vol.Schema(
     vol.Any(
-        # either coords directly
         vol.Schema(
             {
                 vol.Required(ATTR_LATITUDE): vol.Coerce(float),
                 vol.Required(ATTR_LONGITUDE): vol.Coerce(float),
             }
         ),
-        # or an entity to read coords from
         vol.Schema({vol.Required(ATTR_ENTITY_ID): cv.entity_id}),
     )
 )
@@ -77,14 +74,11 @@ PARK_MANUAL_SCHEMA = vol.Schema(
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    session = async_get_clientsession(hass)
-    client = CarParkerApiClient(session, entry.data[CONF_BASE_URL])
-    coordinator = CarParkerCoordinator(hass, client)
-
+    data_dir = Path(hass.config.config_dir) / "car_parker"
+    coordinator = CarParkerCoordinator(hass, data_dir)
+    await coordinator.async_setup()
     await coordinator.async_config_entry_first_refresh()
-
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
-
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     _register_services(hass)
     return True
@@ -99,8 +93,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-# ── Services ────────────────────────────────────────────────────────────────
-
 def _any_coordinator(hass: HomeAssistant) -> CarParkerCoordinator | None:
     bucket = hass.data.get(DOMAIN, {})
     return next(iter(bucket.values()), None) if bucket else None
@@ -111,7 +103,6 @@ def _resolve_coords(
 ) -> tuple[float, float] | None:
     if ATTR_LATITUDE in data and ATTR_LONGITUDE in data:
         return float(data[ATTR_LATITUDE]), float(data[ATTR_LONGITUDE])
-
     entity_id = data.get(ATTR_ENTITY_ID)
     if not entity_id:
         return None
@@ -131,7 +122,7 @@ def _resolve_coords(
 
 def _register_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_PARK_HERE):
-        return  # already registered (multiple entries)
+        return
 
     async def _park_here(call: ServiceCall) -> None:
         coord = _any_coordinator(hass)
@@ -140,9 +131,17 @@ def _register_services(hass: HomeAssistant) -> None:
         coords = _resolve_coords(hass, dict(call.data))
         if not coords:
             raise vol.Invalid("park_here requires latitude/longitude or entity_id")
+        lat, lng = coords
+
+        def _do() -> None:
+            tl = coord.tl_lookup.find_nearest(lat, lng)
+            time_limit = tl.to_dict() if tl else None
+            nearby = coord.geo_lookup.find_nearby_blocks(lat, lng, max_blocks=5)
+            coord.manager.save_tentative(lat, lng, nearby, time_limit)
+
         try:
-            await coord.client.park_tentative(*coords)
-        except CarParkerApiError as err:
+            await hass.async_add_executor_job(_do)
+        except Exception as err:
             _LOGGER.error("park_here failed: %s", err)
         await coord.async_refresh()
 
@@ -151,11 +150,12 @@ def _register_services(hass: HomeAssistant) -> None:
         if not coord:
             return
         try:
-            await coord.client.park_pick_block(
-                street=call.data[ATTR_STREET],
-                limits=call.data.get(ATTR_LIMITS),
+            await hass.async_add_executor_job(
+                coord.manager.pick_block,
+                call.data[ATTR_STREET],
+                call.data.get(ATTR_LIMITS),
             )
-        except CarParkerApiError as err:
+        except (ValueError, TypeError) as err:
             _LOGGER.error("pick_block failed: %s", err)
         await coord.async_refresh()
 
@@ -164,8 +164,10 @@ def _register_services(hass: HomeAssistant) -> None:
         if not coord:
             return
         try:
-            await coord.client.park_confirm(call.data[ATTR_SIDE])
-        except CarParkerApiError as err:
+            await hass.async_add_executor_job(
+                coord.manager.confirm_side, call.data[ATTR_SIDE]
+            )
+        except ValueError as err:
             _LOGGER.error("confirm_side failed: %s", err)
         await coord.async_refresh()
 
@@ -174,16 +176,25 @@ def _register_services(hass: HomeAssistant) -> None:
         if not coord:
             return
         data = dict(call.data)
-        try:
+
+        def _do() -> None:
             if ATTR_TEXT in data:
-                await coord.client.park_text(data[ATTR_TEXT])
+                location = coord.manager.parser.parse(data[ATTR_TEXT])
+                if not location:
+                    raise ValueError(
+                        f"Could not parse location: {data[ATTR_TEXT]!r}"
+                    )
+                coord.manager.save_parking_location(location)
             else:
-                await coord.client.park_structured(
+                coord.manager.save_structured_location(
                     street=data[ATTR_STREET],
-                    block=data.get(ATTR_BLOCK),
+                    block_limits=data.get(ATTR_BLOCK),
                     side=data[ATTR_SIDE],
                 )
-        except CarParkerApiError as err:
+
+        try:
+            await hass.async_add_executor_job(_do)
+        except Exception as err:
             _LOGGER.error("park_manual failed: %s", err)
         await coord.async_refresh()
 
@@ -191,10 +202,18 @@ def _register_services(hass: HomeAssistant) -> None:
         coord = _any_coordinator(hass)
         if not coord:
             return
+        await hass.async_add_executor_job(coord.manager.clear)
+        await coord.async_refresh()
+
+    async def _sync_data(call: ServiceCall) -> None:
+        coord = _any_coordinator(hass)
+        if not coord:
+            return
         try:
-            await coord.client.clear()
-        except CarParkerApiError as err:
-            _LOGGER.error("clear failed: %s", err)
+            await downloader.download_all(hass, coord._data_dir)
+            await coord.reload()
+        except Exception as err:
+            _LOGGER.error("sync_data failed: %s", err)
         await coord.async_refresh()
 
     hass.services.async_register(DOMAIN, SERVICE_PARK_HERE, _park_here, schema=PARK_HERE_SCHEMA)
@@ -202,6 +221,7 @@ def _register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(DOMAIN, SERVICE_CONFIRM_SIDE, _confirm_side, schema=CONFIRM_SIDE_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_PARK_MANUAL, _park_manual, schema=PARK_MANUAL_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_CLEAR, _clear)
+    hass.services.async_register(DOMAIN, SERVICE_SYNC_DATA, _sync_data)
 
 
 def _unregister_services(hass: HomeAssistant) -> None:
@@ -211,6 +231,7 @@ def _unregister_services(hass: HomeAssistant) -> None:
         SERVICE_CONFIRM_SIDE,
         SERVICE_PARK_MANUAL,
         SERVICE_CLEAR,
+        SERVICE_SYNC_DATA,
     ):
         if hass.services.has_service(DOMAIN, svc):
             hass.services.async_remove(DOMAIN, svc)
