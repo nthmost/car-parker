@@ -59,6 +59,11 @@ Copy `dashboard/parking.yaml` to your HA config directory and edit the one line 
 entity_id: person.YOUR_NAME  # replace with your person entity
 ```
 
+**Manual entry** needs two companion pieces (both in `dashboard/`):
+
+- `car_parker.helper.yaml` — the `input_text.car_parker_manual_text` helper the field writes to. Add it under your `input_text:` config, or create the equivalent helper in Settings → Devices & Services → Helpers.
+- `car_parker.automation.yaml` — an automation that parks when you type a location and press **Enter**. It triggers on the field's committed value, which is deliberate: a dashboard button that reads the field directly fires before the value round-trips through HA and silently sends an empty string on first use.
+
 ---
 
 ## How it works

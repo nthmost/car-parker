@@ -170,8 +170,8 @@ views:
             icon: mdi:car-arrow-right
             icon_height: 80px
             tap_action:
-              action: call-service
-              service: car_parker.park_here
+              action: perform-action
+              perform_action: car_parker.park_here
               data:
                 entity_id: person.YOUR_NAME  # replace with your person entity
           - type: markdown
@@ -323,6 +323,14 @@ views:
                 text: Forget this parking spot?
 
       # ── Manual entry (shown when empty or parked) ──────────────────────
+      # Parking happens via the `car_parker_manual_entry` automation
+      # (see dashboard/car_parker.automation.yaml), which fires on the
+      # COMMITTED input_text value — just type and press Enter.
+      #
+      # Do NOT drive this with a button that reads the field via
+      # `[[[ return entity.state; ]]]`: the button-card tap fires before the
+      # input_text value round-trips through HA, so it silently sends an empty
+      # string on first use and nothing gets parked.
       - type: grid
         visibility:
           - condition: template
@@ -332,20 +340,9 @@ views:
           - type: markdown
             content: |
               #### Manual entry
+              Type your location and press **Enter** —
               _e.g. "Anza between 7th and 8th, north side"_
           - type: entities
             entities:
               - entity: input_text.car_parker_manual_text
                 name: Location
-          - type: custom:button-card
-            entity: input_text.car_parker_manual_text
-            show_icon: true
-            icon: mdi:map-marker-check
-            show_state: false
-            name: Set parking location
-            tap_action:
-              action: call-service
-              service: car_parker.park_manual
-              service_data:
-                text: |
-                  [[[ return entity.state; ]]]

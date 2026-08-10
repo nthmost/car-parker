@@ -1,0 +1,31 @@
+# Car Parker — park from the manual-entry text field.
+#
+# Add to your HA automations (e.g. drop into a file loaded by
+# `automation: !include_dir_merge_list automations/`).
+#
+# It triggers on the COMMITTED input_text value (fires after Enter/blur),
+# which is why the dashboard has no "set location" button: a button-card that
+# reads the field via `[[[ return entity.state; ]]]` fires before the value
+# round-trips through HA and silently sends an empty string on first use.
+- id: car_parker_manual_entry
+  alias: "Car Parker — park from manual text entry"
+  description: Park when a location is typed into the manual-entry field.
+  mode: single
+  trigger:
+    - platform: state
+      entity_id: input_text.car_parker_manual_text
+  condition:
+    - condition: template
+      value_template: >
+        {{ trigger.to_state.state | trim not in ("", "unknown", "unavailable") }}
+  action:
+    - service: car_parker.park_manual
+      data:
+        text: "{{ trigger.to_state.state }}"
+    # Clear the field so the next entry re-triggers and the box doesn't
+    # linger. Setting it to "" is filtered out by the condition above.
+    - service: input_text.set_value
+      target:
+        entity_id: input_text.car_parker_manual_text
+      data:
+        value: ""

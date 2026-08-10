@@ -1,0 +1,9 @@
+# Manual-entry text field used by the parking dashboard.
+#
+# Add under your `input_text:` config, e.g.:
+#   input_text: !include input_text.yaml
+# or create the equivalent helper in Settings → Devices & Services → Helpers.
+car_parker_manual_text:
+  name: Manual parking location
+  max: 200
+  mode: text
