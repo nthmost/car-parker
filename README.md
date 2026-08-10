@@ -68,7 +68,7 @@ entity_id: person.YOUR_NAME  # replace with your person entity
 
 ## How it works
 
-When you park, you either tap **Park here** (GPS) or type your location manually. For GPS, the integration looks up the nearest block faces in the SFMTA dataset and asks you to confirm which block and which side of the street you're on — GPS alone isn't precise enough to know that reliably.
+When you park, you have three ways to set your location: tap **Park here** (your phone's GPS), tap **Park at car** (the car's own GPS, if it's in HA — see below), or type it manually. For GPS, the integration looks up the nearest block faces in the SFMTA dataset and asks you to confirm which block and which side of the street you're on — GPS alone isn't precise enough to know that reliably.
 
 Once confirmed, it computes the next scheduled sweep for your exact block face and side, and keeps a running countdown. The `binary_sensor.move_car_now` entity flips on when urgency reaches `urgent` (< 2 hours by default) or `now`, which you can use to trigger a push notification via a standard HA automation.
 
@@ -84,6 +84,17 @@ The urgency levels are configurable. Go to **Settings → Devices & Services →
 | **Soon when within (days)** | 1 | A sweep this many days away or less (but not yet urgent) is `soon`. `0` = only today counts as soon; `1` = today and tomorrow. |
 
 Changes apply immediately (the integration reloads itself). `now` (sweep already started) and `safe` (everything beyond the `soon` window) are derived automatically.
+
+---
+
+## Parking from your car's GPS
+
+`car_parker.park_here` accepts any entity that exposes `latitude`/`longitude` attributes via its `entity_id` field — including a car with a GPS `device_tracker` in HA (e.g. the [Subaru Starlink](https://www.home-assistant.io/integrations/subaru/) integration). Two ways to use it:
+
+- **Dashboard button** — the **Park at car** button on the parking dashboard. Edit the placeholder `device_tracker.YOUR_CAR` in `dashboard/parking.yaml` to your car's tracker.
+- **Auto-park on ignition-off** — the second automation in `dashboard/car_parker.automation.yaml` fires when the car's vehicle-state sensor reaches `ignition_off` and calls `park_here` with the car's GPS. This is the freshest fix (the car refreshes its position when you shut it off). Replace `sensor.YOUR_CAR_vehicle_state` and `device_tracker.YOUR_CAR` with your car's entities.
+
+Either way you land in the **pick block → confirm side** flow: the car's GPS gives the block, and you tap the correct side on the dashboard (GPS can't tell which side of the street you're on). Some integrations only refresh location on ignition events or a manual "locate," so treat the block as approximate until you confirm it.
 
 ---
 

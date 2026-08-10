@@ -174,10 +174,19 @@ views:
               perform_action: car_parker.park_here
               data:
                 entity_id: person.YOUR_NAME  # replace with your person entity
+          - type: button
+            name: Park at car
+            icon: mdi:car-connected
+            icon_height: 80px
+            tap_action:
+              action: perform-action
+              perform_action: car_parker.park_here
+              data:
+                entity_id: device_tracker.YOUR_CAR  # replace with your car's GPS device_tracker
           - type: markdown
             content: |
-              Pull up to a spot and tap **Park here** to use your GPS,
-              or enter your location manually below.
+              Tap **Park here** to use your phone's GPS, **Park at car** to use
+              the car's GPS, or enter your location manually below.
 
       # ── PENDING / pick_block ───────────────────────────────────────────
       - type: grid
