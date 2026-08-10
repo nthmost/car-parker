@@ -34,6 +34,14 @@ park_here:
             - person
             - device_tracker
 
+park_at_car:
+  name: Park at car (GPS)
+  description: >
+    Capture the location of the car GPS tracker configured in the Car Parker
+    options as a tentative park. Takes no fields — set the tracker under
+    Settings → Devices & Services → Car Parker → Configure. Returns candidate
+    sides; use confirm_side to finalize.
+
 pick_block:
   name: Pick block
   description: >

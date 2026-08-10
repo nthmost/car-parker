@@ -12,6 +12,7 @@ from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
+    CONF_CAR_TRACKER,
     CONF_SOON_DAYS,
     CONF_URGENT_HOURS,
     DEFAULT_POLL_INTERVAL,
@@ -77,6 +78,21 @@ class CarParkerCoordinator(DataUpdateCoordinator[dict]):
 
     async def _async_update_data(self) -> dict:
         try:
-            return await self.hass.async_add_executor_job(self.manager.get_status)
+            data = await self.hass.async_add_executor_job(self.manager.get_status)
         except Exception as err:
             raise UpdateFailed(f"Unexpected: {err}") from err
+        # If the user pointed us at a car GPS tracker, fold its live location
+        # into the payload so it can be surfaced without hardcoding the entity
+        # anywhere downstream (see sensor.car_parker_car_location).
+        tracker = self._entry.options.get(CONF_CAR_TRACKER)
+        if tracker:
+            st = self.hass.states.get(tracker)
+            if st and st.attributes.get("latitude") is not None:
+                data["car_tracker"] = {
+                    "entity_id": tracker,
+                    "state": st.state,
+                    "latitude": st.attributes.get("latitude"),
+                    "longitude": st.attributes.get("longitude"),
+                    "gps_accuracy": st.attributes.get("gps_accuracy"),
+                }
+        return data

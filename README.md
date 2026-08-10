@@ -87,14 +87,17 @@ Changes apply immediately (the integration reloads itself). `now` (sweep already
 
 ---
 
-## Parking from your car's GPS
+## Using your car's own GPS (optional)
 
-`car_parker.park_here` accepts any entity that exposes `latitude`/`longitude` attributes via its `entity_id` field — including a car with a GPS `device_tracker` in HA (e.g. the [Subaru Starlink](https://www.home-assistant.io/integrations/subaru/) integration). Two ways to use it:
+If your car reports its location to Home Assistant as a `device_tracker` (e.g. the [Subaru Starlink](https://www.home-assistant.io/integrations/subaru/) integration, and many others), Car Parker can use it. Set it once under **Settings → Devices & Services → Car Parker → Configure → Car GPS tracker**. Leave it empty if you don't have one — all the features below simply stay hidden.
 
-- **Dashboard button** — the **Park at car** button on the parking dashboard. Edit the placeholder `device_tracker.YOUR_CAR` in `dashboard/parking.yaml` to your car's tracker.
-- **Auto-park on ignition-off** — the second automation in `dashboard/car_parker.automation.yaml` fires when the car's vehicle-state sensor reaches `ignition_off` and calls `park_here` with the car's GPS. This is the freshest fix (the car refreshes its position when you shut it off). Replace `sensor.YOUR_CAR_vehicle_state` and `device_tracker.YOUR_CAR` with your car's entities.
+Once configured, you get:
 
-Either way you land in the **pick block → confirm side** flow: the car's GPS gives the block, and you tap the correct side on the dashboard (GPS can't tell which side of the street you're on). Some integrations only refresh location on ignition events or a manual "locate," so treat the block as approximate until you confirm it.
+- **Live car location on the dashboard.** A map + coordinates card appears showing where the car is right now. It reads `sensor.car_parker_car_location`, which mirrors your configured tracker — so the shipped dashboard stays generic (no need to hardcode your entity).
+- **A "Park at car" button** on the dashboard that calls `car_parker.park_at_car` — no arguments; it reads the configured tracker.
+- **Auto-park on ignition-off.** The second automation in `dashboard/car_parker.automation.yaml` fires when the car's vehicle-state sensor reaches `ignition_off` and calls `car_parker.park_at_car`. This is the freshest fix (the car refreshes its position when you shut it off). The only thing to customize is the trigger — replace `sensor.YOUR_CAR_vehicle_state` with your car's vehicle-state sensor.
+
+Any of these lands you in the **pick block → confirm side** flow: the car's GPS gives the block, and you tap the correct side on the dashboard (GPS can't tell which side of the street you're on). Some integrations only refresh location on ignition events or a manual "locate," so treat the block as approximate until you confirm it.
 
 ---
 
@@ -108,6 +111,7 @@ Either way you land in the **pick block → confirm side** flow: the car's GPS g
 | `sensor.next_street_sweep_label` | sensor | Human-readable label, e.g. "Tuesday, Jun 3rd 7–9am" |
 | `sensor.parked_location` | sensor | Street, block, and side |
 | `sensor.parking_time_limit` | sensor | Nearby time-limit restriction, if any |
+| `sensor.car_parker_car_location` | sensor | Live location of your configured car tracker (lat/lng attrs; only present when a car tracker is set) |
 | `binary_sensor.car_parked` | binary | On when status is `parked` |
 | `binary_sensor.move_car_now` | binary | On when urgency is `urgent` or `now` — use this for push alerts |
 | `binary_sensor.car_parker_needs_side_confirmation` | binary | On during the GPS confirmation flow |
@@ -119,6 +123,7 @@ Either way you land in the **pick block → confirm side** flow: the car's GPS g
 | Service | Description |
 |---|---|
 | `car_parker.park_here` | Start GPS flow — pass `entity_id: person.x` or explicit `latitude`/`longitude` |
+| `car_parker.park_at_car` | Start GPS flow using the car tracker set in the options (no arguments) |
 | `car_parker.pick_block` | Confirm which nearby block you're on (GPS flow, stage 2) |
 | `car_parker.confirm_side` | Confirm which side of the street (GPS flow, stage 3) |
 | `car_parker.park_manual` | Set location by free text (`"Anza between 7th and 8th, north side"`) or structured `street`/`block`/`side` |

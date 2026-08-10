@@ -20,11 +20,13 @@
         "description": "Tune when Car Parker considers a sweep 'urgent' or 'soon'. These drive sensor.car_parker_urgency, binary_sensor.move_car_now, and the dashboard colors.",
         "data": {
           "urgent_hours": "Urgent when within (hours)",
-          "soon_days": "Soon when within (days)"
+          "soon_days": "Soon when within (days)",
+          "car_tracker": "Car GPS tracker (optional)"
         },
         "data_description": {
           "urgent_hours": "A sweep this many hours away (or less) is flagged 'urgent' and turns on move_car_now. Default: 2.",
-          "soon_days": "A sweep this many days away (or less), but not yet urgent, is flagged 'soon'. 0 = only today counts as soon. Default: 1 (today and tomorrow)."
+          "soon_days": "A sweep this many days away (or less), but not yet urgent, is flagged 'soon'. 0 = only today counts as soon. Default: 1 (today and tomorrow).",
+          "car_tracker": "If your car reports its location to HA (e.g. Subaru Starlink), pick its device_tracker here. It powers the 'Park at car' button, the ignition-off auto-park, and shows the car's live location on the dashboard. Leave empty if you don't have one."
         }
       }
     }

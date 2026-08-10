@@ -174,19 +174,23 @@ views:
               perform_action: car_parker.park_here
               data:
                 entity_id: person.YOUR_NAME  # replace with your person entity
+          # Shown only when a car GPS tracker is set in the Car Parker options.
+          # No entity_id needed — park_at_car reads the configured tracker.
           - type: button
             name: Park at car
             icon: mdi:car-connected
             icon_height: 80px
+            visibility:
+              - condition: state
+                entity: sensor.car_parker_car_location
+                state_not: unavailable
             tap_action:
               action: perform-action
-              perform_action: car_parker.park_here
-              data:
-                entity_id: device_tracker.YOUR_CAR  # replace with your car's GPS device_tracker
+              perform_action: car_parker.park_at_car
           - type: markdown
             content: |
               Tap **Park here** to use your phone's GPS, **Park at car** to use
-              the car's GPS, or enter your location manually below.
+              the car's GPS (if configured), or enter your location manually below.
 
       # ── PENDING / pick_block ───────────────────────────────────────────
       - type: grid
@@ -355,3 +359,26 @@ views:
             entities:
               - entity: input_text.car_parker_manual_text
                 name: Location
+
+      # ── Car's live location (shown only when a car tracker is configured) ──
+      # sensor.car_parker_car_location mirrors the device_tracker set in the
+      # Car Parker options, so this stays generic — no per-user entity here.
+      - type: grid
+        visibility:
+          - condition: state
+            entity: sensor.car_parker_car_location
+            state_not: unavailable
+        cards:
+          - type: markdown
+            content: |
+              #### 🚗 Where's the car?
+          - type: map
+            entities:
+              - entity: sensor.car_parker_car_location
+            default_zoom: 16
+            aspect_ratio: "16:9"
+          - type: markdown
+            content: >
+              {% set s = 'sensor.car_parker_car_location' %} Currently in
+              **{{ states(s) }}** — {{ state_attr(s, 'latitude') }},
+              {{ state_attr(s, 'longitude') }}

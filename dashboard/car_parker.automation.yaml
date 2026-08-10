@@ -32,13 +32,17 @@
 
 # Car Parker — auto-park from the car's GPS when you switch the ignition off.
 #
-# If your car surfaces a GPS device_tracker + an ignition/vehicle-state sensor
-# in HA (e.g. the Subaru Starlink integration), this captures where you parked
-# at the freshest possible moment — the fix updates on ignition-off. It starts
-# the "pick block → confirm side" flow; GPS alone can't tell which side you're
-# on, so you still confirm that on the dashboard.
+# If your car surfaces an ignition/vehicle-state sensor in HA (e.g. the Subaru
+# Starlink integration), this captures where you parked at the freshest possible
+# moment — the GPS fix updates on ignition-off. It calls car_parker.park_at_car,
+# which reads the device_tracker you set in the Car Parker options, so the only
+# thing to customize here is the trigger sensor. It starts the "pick block →
+# confirm side" flow; GPS alone can't tell which side you're on, so you still
+# confirm that on the dashboard.
 #
-# Replace the two entity_ids below with your car's entities.
+# Replace the trigger entity_id with your car's vehicle-state sensor, and set
+# your car's device_tracker under Settings → Devices & Services → Car Parker →
+# Configure.
 - id: car_parker_park_from_car_gps
   alias: "Car Parker — park from car GPS on ignition-off"
   description: Auto-detect the parked block when the car's ignition turns off.
@@ -47,15 +51,8 @@
     - platform: state
       entity_id: sensor.YOUR_CAR_vehicle_state  # ignition/vehicle-state sensor
       to: "ignition_off"
-  condition:
-    # The device_tracker must have a real GPS fix (skip unknown/unavailable).
-    - condition: template
-      value_template: >
-        {{ state_attr('device_tracker.YOUR_CAR', 'latitude') is not none }}
   action:
     # Small settle so the car's position attributes finish updating alongside
-    # the ignition state before we read them.
+    # the ignition state before park_at_car reads them.
     - delay: "00:00:05"
-    - service: car_parker.park_here
-      data:
-        entity_id: device_tracker.YOUR_CAR  # GPS device_tracker for your car
+    - service: car_parker.park_at_car

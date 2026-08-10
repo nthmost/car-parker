@@ -22,9 +22,11 @@ from .const import (
     ATTR_SIDE,
     ATTR_STREET,
     ATTR_TEXT,
+    CONF_CAR_TRACKER,
     DOMAIN,
     SERVICE_CLEAR,
     SERVICE_CONFIRM_SIDE,
+    SERVICE_PARK_AT_CAR,
     SERVICE_PARK_HERE,
     SERVICE_PARK_MANUAL,
     SERVICE_PICK_BLOCK,
@@ -130,15 +132,7 @@ def _register_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_PARK_HERE):
         return
 
-    async def _park_here(call: ServiceCall) -> None:
-        coord = _any_coordinator(hass)
-        if not coord:
-            return
-        coords = _resolve_coords(hass, dict(call.data))
-        if not coords:
-            raise vol.Invalid("park_here requires latitude/longitude or entity_id")
-        lat, lng = coords
-
+    async def _park_at_coords(coord, lat: float, lng: float, label: str) -> None:
         def _do() -> None:
             tl = coord.tl_lookup.find_nearest(lat, lng)
             time_limit = tl.to_dict() if tl else None
@@ -148,8 +142,38 @@ def _register_services(hass: HomeAssistant) -> None:
         try:
             await hass.async_add_executor_job(_do)
         except Exception as err:
-            _LOGGER.error("park_here failed: %s", err)
+            _LOGGER.error("%s failed: %s", label, err)
         await coord.async_refresh()
+
+    async def _park_here(call: ServiceCall) -> None:
+        coord = _any_coordinator(hass)
+        if not coord:
+            return
+        coords = _resolve_coords(hass, dict(call.data))
+        if not coords:
+            raise vol.Invalid("park_here requires latitude/longitude or entity_id")
+        lat, lng = coords
+        await _park_at_coords(coord, lat, lng, "park_here")
+
+    async def _park_at_car(call: ServiceCall) -> None:
+        coord = _any_coordinator(hass)
+        if not coord:
+            return
+        tracker = coord._entry.options.get(CONF_CAR_TRACKER)
+        if not tracker:
+            _LOGGER.warning(
+                "park_at_car: no car tracker configured (set one in the "
+                "Car Parker options)"
+            )
+            return
+        coords = _resolve_coords(hass, {ATTR_ENTITY_ID: tracker})
+        if not coords:
+            _LOGGER.warning(
+                "park_at_car: tracker %s has no latitude/longitude", tracker
+            )
+            return
+        lat, lng = coords
+        await _park_at_coords(coord, lat, lng, "park_at_car")
 
     async def _pick_block(call: ServiceCall) -> None:
         coord = _any_coordinator(hass)
@@ -223,6 +247,7 @@ def _register_services(hass: HomeAssistant) -> None:
         await coord.async_refresh()
 
     hass.services.async_register(DOMAIN, SERVICE_PARK_HERE, _park_here, schema=PARK_HERE_SCHEMA)
+    hass.services.async_register(DOMAIN, SERVICE_PARK_AT_CAR, _park_at_car)
     hass.services.async_register(DOMAIN, SERVICE_PICK_BLOCK, _pick_block, schema=PICK_BLOCK_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_CONFIRM_SIDE, _confirm_side, schema=CONFIRM_SIDE_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_PARK_MANUAL, _park_manual, schema=PARK_MANUAL_SCHEMA)
@@ -233,6 +258,7 @@ def _register_services(hass: HomeAssistant) -> None:
 def _unregister_services(hass: HomeAssistant) -> None:
     for svc in (
         SERVICE_PARK_HERE,
+        SERVICE_PARK_AT_CAR,
         SERVICE_PICK_BLOCK,
         SERVICE_CONFIRM_SIDE,
         SERVICE_PARK_MANUAL,

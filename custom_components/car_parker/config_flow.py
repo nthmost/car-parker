@@ -12,6 +12,7 @@ from homeassistant.helpers import selector
 
 from . import downloader
 from .const import (
+    CONF_CAR_TRACKER,
     CONF_SOON_DAYS,
     CONF_URGENT_HOURS,
     DEFAULT_SOON_DAYS,
@@ -77,32 +78,38 @@ class CarParkerOptionsFlow(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         options = self.config_entry.options
-        data_schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_URGENT_HOURS,
-                    default=options.get(CONF_URGENT_HOURS, DEFAULT_URGENT_HOURS),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0.5,
-                        max=48,
-                        step=0.5,
-                        unit_of_measurement="hours",
-                        mode=selector.NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Required(
-                    CONF_SOON_DAYS,
-                    default=options.get(CONF_SOON_DAYS, DEFAULT_SOON_DAYS),
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=0,
-                        max=7,
-                        step=1,
-                        unit_of_measurement="days",
-                        mode=selector.NumberSelectorMode.BOX,
-                    )
-                ),
-            }
-        )
-        return self.async_show_form(step_id="init", data_schema=data_schema)
+        schema: dict = {
+            vol.Required(
+                CONF_URGENT_HOURS,
+                default=options.get(CONF_URGENT_HOURS, DEFAULT_URGENT_HOURS),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0.5,
+                    max=48,
+                    step=0.5,
+                    unit_of_measurement="hours",
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+            vol.Required(
+                CONF_SOON_DAYS,
+                default=options.get(CONF_SOON_DAYS, DEFAULT_SOON_DAYS),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=0,
+                    max=7,
+                    step=1,
+                    unit_of_measurement="days",
+                    mode=selector.NumberSelectorMode.BOX,
+                )
+            ),
+            # Optional: a device_tracker for the car's own GPS. Leave empty if
+            # you don't have one — the car-location features stay hidden.
+            vol.Optional(
+                CONF_CAR_TRACKER,
+                description={"suggested_value": options.get(CONF_CAR_TRACKER)},
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="device_tracker")
+            ),
+        }
+        return self.async_show_form(step_id="init", data_schema=vol.Schema(schema))

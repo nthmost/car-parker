@@ -179,10 +179,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator: CarParkerCoordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities(
+    entities: list[SensorEntity] = [
         CarParkerSensor(coordinator, entry, desc, fn, attrs_fn)
         for desc, fn, attrs_fn in SENSORS
-    )
+    ]
+    entities.append(CarLocationSensor(coordinator, entry))
+    async_add_entities(entities)
 
 
 class CarParkerSensor(CoordinatorEntity[CarParkerCoordinator], SensorEntity):
@@ -211,3 +213,45 @@ class CarParkerSensor(CoordinatorEntity[CarParkerCoordinator], SensorEntity):
         if self._attrs_fn is None:
             return None
         return self._attrs_fn(self.coordinator.data or {})
+
+
+class CarLocationSensor(CoordinatorEntity[CarParkerCoordinator], SensorEntity):
+    """Live location of the user's car, mirrored from the configured tracker.
+
+    Only available when a car tracker is set in the options. Carries
+    latitude/longitude attributes so a Lovelace map card can plot it without
+    the dashboard needing to know the user's specific device_tracker entity.
+    """
+
+    _attr_has_entity_name = True
+    _attr_name = "Car parker car location"
+    _attr_icon = "mdi:car-connected"
+
+    def __init__(self, coordinator: CarParkerCoordinator, entry: ConfigEntry):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_car_location"
+
+    @property
+    def _tracker(self) -> dict | None:
+        return (self.coordinator.data or {}).get("car_tracker")
+
+    @property
+    def available(self) -> bool:
+        return super().available and self._tracker is not None
+
+    @property
+    def native_value(self) -> Any:
+        tracker = self._tracker
+        return tracker.get("state") if tracker else None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        tracker = self._tracker
+        if not tracker:
+            return None
+        return {
+            "latitude": tracker.get("latitude"),
+            "longitude": tracker.get("longitude"),
+            "gps_accuracy": tracker.get("gps_accuracy"),
+            "source": tracker.get("entity_id"),
+        }
