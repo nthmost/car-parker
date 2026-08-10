@@ -7,15 +7,30 @@ from pathlib import Path
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.core import callback
+from homeassistant.helpers import selector
 
 from . import downloader
-from .const import DOMAIN
+from .const import (
+    CONF_SOON_DAYS,
+    CONF_URGENT_HOURS,
+    DEFAULT_SOON_DAYS,
+    DEFAULT_URGENT_HOURS,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class CarParkerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> CarParkerOptionsFlow:
+        return CarParkerOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict | None = None
@@ -50,3 +65,44 @@ class CarParkerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             },
         )
+
+
+class CarParkerOptionsFlow(config_entries.OptionsFlow):
+    """Let the user tune the urgency thresholds from the HA UI."""
+
+    async def async_step_init(
+        self, user_input: dict | None = None
+    ) -> config_entries.ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        options = self.config_entry.options
+        data_schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_URGENT_HOURS,
+                    default=options.get(CONF_URGENT_HOURS, DEFAULT_URGENT_HOURS),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0.5,
+                        max=48,
+                        step=0.5,
+                        unit_of_measurement="hours",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Required(
+                    CONF_SOON_DAYS,
+                    default=options.get(CONF_SOON_DAYS, DEFAULT_SOON_DAYS),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0,
+                        max=7,
+                        step=1,
+                        unit_of_measurement="days",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=data_schema)

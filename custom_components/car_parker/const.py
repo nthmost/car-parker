@@ -31,6 +31,13 @@ STATUS_EMPTY = "empty"
 STATUS_PENDING = "pending"
 STATUS_PARKED = "parked"
 
+# Options: urgency thresholds (editable in the HA UI via the Configure button)
+CONF_URGENT_HOURS = "urgent_hours"
+CONF_SOON_DAYS = "soon_days"
+
+DEFAULT_URGENT_HOURS = 2  # < this many hours until the sweep → "urgent"
+DEFAULT_SOON_DAYS = 1  # sweep within this many days (but not urgent) → "soon"
+
 # Urgency values
 URGENCY_SAFE = "safe"
 URGENCY_SOON = "soon"

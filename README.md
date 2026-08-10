@@ -70,7 +70,20 @@ entity_id: person.YOUR_NAME  # replace with your person entity
 
 When you park, you either tap **Park here** (GPS) or type your location manually. For GPS, the integration looks up the nearest block faces in the SFMTA dataset and asks you to confirm which block and which side of the street you're on — GPS alone isn't precise enough to know that reliably.
 
-Once confirmed, it computes the next scheduled sweep for your exact block face and side, and keeps a running countdown. The `binary_sensor.move_car_now` entity flips on when urgency reaches `urgent` (< 2 hours) or `now`, which you can use to trigger a push notification via a standard HA automation.
+Once confirmed, it computes the next scheduled sweep for your exact block face and side, and keeps a running countdown. The `binary_sensor.move_car_now` entity flips on when urgency reaches `urgent` (< 2 hours by default) or `now`, which you can use to trigger a push notification via a standard HA automation.
+
+---
+
+## Urgency thresholds
+
+The urgency levels are configurable. Go to **Settings → Devices & Services → Car Parker → Configure** to set:
+
+| Option | Default | Meaning |
+|---|---|---|
+| **Urgent when within (hours)** | 2 | A sweep this many hours away or less is `urgent` and turns on `binary_sensor.move_car_now`. |
+| **Soon when within (days)** | 1 | A sweep this many days away or less (but not yet urgent) is `soon`. `0` = only today counts as soon; `1` = today and tomorrow. |
+
+Changes apply immediately (the integration reloads itself). `now` (sweep already started) and `safe` (everything beyond the `soon` window) are derived automatically.
 
 ---
 

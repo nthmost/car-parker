@@ -343,11 +343,16 @@ class ParkingManager:
         self,
         lookup: StreetSweepingLookup,
         state_file: Optional[Path] = None,
+        urgent_hours: float = 2,
+        soon_days: int = 1,
     ):
         self.lookup = lookup
         self.state_file = state_file or PARKING_STATE_FILE
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         self.parser = LocationParser(lookup)
+        # Urgency thresholds (user-configurable via the HA options flow).
+        self.urgent_hours = urgent_hours
+        self.soon_days = soon_days
 
     # ── State I/O ──
 
@@ -620,8 +625,7 @@ class ParkingManager:
             )
         return result
 
-    @staticmethod
-    def _format_next_sweep(next_sweep: Dict) -> Tuple[Dict, str]:
+    def _format_next_sweep(self, next_sweep: Dict) -> Tuple[Dict, str]:
         now = now_local()
         start = next_sweep['start_time']
         end = next_sweep['end_time']
@@ -631,10 +635,11 @@ class ParkingManager:
         from_str = f"{sched.fromhour % 12 or 12}{'am' if sched.fromhour < 12 else 'pm'}"
         to_str = f"{sched.tohour % 12 or 12}{'am' if sched.tohour < 12 else 'pm'}"
 
+        urgent_seconds = self.urgent_hours * 3600
         total_seconds = int(delta.total_seconds())
         if total_seconds < 0:
             when_label, urgency = "NOW", 'now'
-        elif delta.days == 0 and total_seconds < 7200:  # < 2h
+        elif total_seconds < urgent_seconds:
             hours = total_seconds // 3600
             mins = (total_seconds % 3600) // 60
             when_label = f"in {hours}h {mins}m" if hours else f"in {mins} min"
@@ -644,11 +649,11 @@ class ParkingManager:
             urgency = 'soon'
         elif delta.days == 1:
             when_label = f"tomorrow {from_str}–{to_str}"
-            urgency = 'soon'
+            urgency = 'soon' if self.soon_days >= 1 else 'safe'
         else:
             day_str = start.strftime('%A, %b ') + ordinal(start.day)
             when_label = f"{day_str} {from_str}–{to_str}"
-            urgency = 'safe'
+            urgency = 'soon' if delta.days <= self.soon_days else 'safe'
 
         return (
             {

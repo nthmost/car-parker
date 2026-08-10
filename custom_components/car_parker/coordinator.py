@@ -11,7 +11,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DEFAULT_POLL_INTERVAL, DOMAIN
+from .const import (
+    CONF_SOON_DAYS,
+    CONF_URGENT_HOURS,
+    DEFAULT_POLL_INTERVAL,
+    DEFAULT_SOON_DAYS,
+    DEFAULT_URGENT_HOURS,
+    DOMAIN,
+)
 
 if TYPE_CHECKING:
     from .parking import ParkingManager
@@ -25,7 +32,9 @@ class CarParkerCoordinator(DataUpdateCoordinator[dict]):
     tl_lookup: TimeLimitLookup
     geo_lookup: SweepingGeoLookup
 
-    def __init__(self, hass: HomeAssistant, data_dir: Path) -> None:
+    def __init__(
+        self, hass: HomeAssistant, data_dir: Path, entry: ConfigEntry
+    ) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -33,14 +42,24 @@ class CarParkerCoordinator(DataUpdateCoordinator[dict]):
             update_interval=timedelta(seconds=DEFAULT_POLL_INTERVAL),
         )
         self._data_dir = data_dir
+        self._entry = entry
 
     async def async_setup(self) -> None:
         """Load data files into memory (blocking I/O — runs in executor)."""
+        options = self._entry.options
+        urgent_hours = options.get(CONF_URGENT_HOURS, DEFAULT_URGENT_HOURS)
+        soon_days = options.get(CONF_SOON_DAYS, DEFAULT_SOON_DAYS)
+
         def _load():
             from .parking import StreetSweepingLookup, ParkingManager
             from .parking_geo import TimeLimitLookup, SweepingGeoLookup
             lookup = StreetSweepingLookup(self._data_dir / "street_sweeping_sf.json")
-            manager = ParkingManager(lookup, self._data_dir / "parking_state.json")
+            manager = ParkingManager(
+                lookup,
+                self._data_dir / "parking_state.json",
+                urgent_hours=urgent_hours,
+                soon_days=soon_days,
+            )
             tl = TimeLimitLookup(self._data_dir / "parking_regulations_sf.geojson")
             geo = SweepingGeoLookup(self._data_dir / "street_sweeping_sf.json")
             return manager, tl, geo
