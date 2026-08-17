@@ -637,6 +637,10 @@ class ParkingManager:
 
         urgent_seconds = self.urgent_hours * 3600
         total_seconds = int(delta.total_seconds())
+        # Calendar days between now and the sweep — NOT delta.days, which is a
+        # rolling 24h count (delta.days==0 for a 7am sweep seen at 8pm the day
+        # before, which wrongly reads as "today").
+        day_diff = (start.date() - now.date()).days
         if total_seconds < 0:
             when_label, urgency = "NOW", 'now'
         elif total_seconds < urgent_seconds:
@@ -644,16 +648,15 @@ class ParkingManager:
             mins = (total_seconds % 3600) // 60
             when_label = f"in {hours}h {mins}m" if hours else f"in {mins} min"
             urgency = 'urgent'
-        elif delta.days == 0:
-            when_label = f"today {from_str}–{to_str}"
-            urgency = 'soon'
-        elif delta.days == 1:
-            when_label = f"tomorrow {from_str}–{to_str}"
-            urgency = 'soon' if self.soon_days >= 1 else 'safe'
         else:
-            day_str = start.strftime('%A, %b ') + ordinal(start.day)
-            when_label = f"{day_str} {from_str}–{to_str}"
-            urgency = 'soon' if delta.days <= self.soon_days else 'safe'
+            if day_diff == 0:
+                when_label = f"today {from_str}–{to_str}"
+            elif day_diff == 1:
+                when_label = f"tomorrow {from_str}–{to_str}"
+            else:
+                day_str = start.strftime('%A, %b ') + ordinal(start.day)
+                when_label = f"{day_str} {from_str}–{to_str}"
+            urgency = 'soon' if day_diff <= self.soon_days else 'safe'
 
         return (
             {
