@@ -36,9 +36,14 @@ STATUS_PARKED = "parked"
 CONF_URGENT_HOURS = "urgent_hours"
 CONF_SOON_DAYS = "soon_days"
 CONF_CAR_TRACKER = "car_tracker"
+CONF_MAX_LOCATION_AGE_MIN = "max_location_age_min"
 
 DEFAULT_URGENT_HOURS = 2  # < this many hours until the sweep → "urgent"
 DEFAULT_SOON_DAYS = 1  # sweep within this many days (but not urgent) → "soon"
+# A tracker that hasn't reported in this long is too stale to trust for
+# block-matching — a device_tracker that only pings on movement can be
+# blocks away from the car's actual (just-parked) position.
+DEFAULT_MAX_LOCATION_AGE_MIN = 10
 
 # Urgency values
 URGENCY_SAFE = "safe"

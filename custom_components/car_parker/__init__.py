@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
+from homeassistant.util import dt as dt_util
 
 from . import downloader
 from .const import (
@@ -23,6 +25,8 @@ from .const import (
     ATTR_STREET,
     ATTR_TEXT,
     CONF_CAR_TRACKER,
+    CONF_MAX_LOCATION_AGE_MIN,
+    DEFAULT_MAX_LOCATION_AGE_MIN,
     DOMAIN,
     SERVICE_CLEAR,
     SERVICE_CONFIRM_SIDE,
@@ -58,7 +62,14 @@ PICK_BLOCK_SCHEMA = vol.Schema(
 )
 
 CONFIRM_SIDE_SCHEMA = vol.Schema(
-    {vol.Required(ATTR_SIDE): vol.In(["North", "South", "East", "West"])}
+    {
+        vol.Required(ATTR_SIDE): vol.In(
+            [
+                "North", "South", "East", "West",
+                "NorthEast", "NorthWest", "SouthEast", "SouthWest",
+            ]
+        )
+    }
 )
 
 PARK_MANUAL_SCHEMA = vol.Schema(
@@ -108,9 +119,17 @@ def _any_coordinator(hass: HomeAssistant) -> CarParkerCoordinator | None:
 
 def _resolve_coords(
     hass: HomeAssistant, data: dict[str, Any]
-) -> tuple[float, float] | None:
+) -> tuple[float, float, datetime | None] | None:
+    """Return (lat, lng, last_updated).
+
+    `last_updated` is None for coords passed directly in the service call
+    (trusted as fresh), and the entity's state timestamp when resolved from
+    a tracker — checked for staleness by the caller, since a tracker that
+    only pings on movement can otherwise still report a position from
+    blocks away from where the car just parked.
+    """
     if ATTR_LATITUDE in data and ATTR_LONGITUDE in data:
-        return float(data[ATTR_LATITUDE]), float(data[ATTR_LONGITUDE])
+        return float(data[ATTR_LATITUDE]), float(data[ATTR_LONGITUDE]), None
     entity_id = data.get(ATTR_ENTITY_ID)
     if not entity_id:
         return None
@@ -125,14 +144,39 @@ def _resolve_coords(
             "park_here: entity %s has no latitude/longitude attributes", entity_id
         )
         return None
-    return float(lat), float(lng)
+    return float(lat), float(lng), state.last_updated
 
 
 def _register_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_PARK_HERE):
         return
 
-    async def _park_at_coords(coord, lat: float, lng: float, label: str) -> None:
+    async def _park_at_coords(
+        coord,
+        lat: float,
+        lng: float,
+        label: str,
+        last_updated: datetime | None = None,
+    ) -> None:
+        if last_updated is not None:
+            max_age_min = coord._entry.options.get(
+                CONF_MAX_LOCATION_AGE_MIN, DEFAULT_MAX_LOCATION_AGE_MIN
+            )
+            age = dt_util.utcnow() - last_updated
+            if age > timedelta(minutes=max_age_min):
+                _LOGGER.warning(
+                    "%s: tracker location is %.0f min old (max %s) — refusing "
+                    "to guess a block from a stale fix. A tracker that only "
+                    "pings on movement can still report a position from "
+                    "blocks away from where the car just parked. Wait for a "
+                    "fresh fix, raise the threshold in Car Parker options, "
+                    "or use park_here instead.",
+                    label,
+                    age.total_seconds() / 60,
+                    max_age_min,
+                )
+                return
+
         def _do() -> None:
             tl = coord.tl_lookup.find_nearest(lat, lng)
             time_limit = tl.to_dict() if tl else None
@@ -152,8 +196,8 @@ def _register_services(hass: HomeAssistant) -> None:
         coords = _resolve_coords(hass, dict(call.data))
         if not coords:
             raise vol.Invalid("park_here requires latitude/longitude or entity_id")
-        lat, lng = coords
-        await _park_at_coords(coord, lat, lng, "park_here")
+        lat, lng, last_updated = coords
+        await _park_at_coords(coord, lat, lng, "park_here", last_updated)
 
     async def _park_at_car(call: ServiceCall) -> None:
         coord = _any_coordinator(hass)
@@ -172,8 +216,8 @@ def _register_services(hass: HomeAssistant) -> None:
                 "park_at_car: tracker %s has no latitude/longitude", tracker
             )
             return
-        lat, lng = coords
-        await _park_at_coords(coord, lat, lng, "park_at_car")
+        lat, lng, last_updated = coords
+        await _park_at_coords(coord, lat, lng, "park_at_car", last_updated)
 
     async def _pick_block(call: ServiceCall) -> None:
         coord = _any_coordinator(hass)

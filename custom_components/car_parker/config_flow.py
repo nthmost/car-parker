@@ -13,8 +13,10 @@ from homeassistant.helpers import selector
 from . import downloader
 from .const import (
     CONF_CAR_TRACKER,
+    CONF_MAX_LOCATION_AGE_MIN,
     CONF_SOON_DAYS,
     CONF_URGENT_HOURS,
+    DEFAULT_MAX_LOCATION_AGE_MIN,
     DEFAULT_SOON_DAYS,
     DEFAULT_URGENT_HOURS,
     DOMAIN,
@@ -110,6 +112,23 @@ class CarParkerOptionsFlow(config_entries.OptionsFlow):
                 description={"suggested_value": options.get(CONF_CAR_TRACKER)},
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain="device_tracker")
+            ),
+            # A device_tracker fix older than this is refused for block
+            # matching — trackers that only ping on movement can otherwise
+            # report a position blocks away from where the car just parked.
+            vol.Required(
+                CONF_MAX_LOCATION_AGE_MIN,
+                default=options.get(
+                    CONF_MAX_LOCATION_AGE_MIN, DEFAULT_MAX_LOCATION_AGE_MIN
+                ),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1,
+                    max=60,
+                    step=1,
+                    unit_of_measurement="minutes",
+                    mode=selector.NumberSelectorMode.BOX,
+                )
             ),
         }
         return self.async_show_form(step_id="init", data_schema=vol.Schema(schema))

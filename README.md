@@ -82,6 +82,7 @@ The urgency levels are configurable. Go to **Settings → Devices & Services →
 |---|---|---|
 | **Urgent when within (hours)** | 2 | A sweep this many hours away or less is `urgent` and turns on `binary_sensor.move_car_now`. |
 | **Soon when within (days)** | 1 | A sweep this many days away or less (but not yet urgent) is `soon`. `0` = only today counts as soon; `1` = today and tomorrow. |
+| **Max tracker location age (minutes)** | 10 | `park_at_car`/`park_here` refuse to match a block from a tracker fix older than this — see below. |
 
 Changes apply immediately (the integration reloads itself). `now` (sweep already started) and `safe` (everything beyond the `soon` window) are derived automatically.
 
@@ -96,6 +97,8 @@ Once configured, you get:
 - **Live car location on the dashboard.** A map + coordinates card appears showing where the car is right now. It reads `sensor.car_parker_car_location`, which mirrors your configured tracker — so the shipped dashboard stays generic (no need to hardcode your entity).
 - **A "Park at car" button** on the dashboard that calls `car_parker.park_at_car` — no arguments; it reads the configured tracker.
 - **Auto-park on ignition-off.** The second automation in `dashboard/car_parker.automation.yaml` fires when the car's vehicle-state sensor reaches `ignition_off` and calls `car_parker.park_at_car`. This is the freshest fix (the car refreshes its position when you shut it off). The only thing to customize is the trigger — replace `sensor.YOUR_CAR_vehicle_state` with your car's vehicle-state sensor.
+
+**A note on staleness:** cloud-relayed trackers (Subaru Starlink and similar) don't always update on your schedule — tapping "Park at car" can read a fix that's still from wherever the car last reported, which may be blocks away from where you actually stopped. `park_at_car`/`park_here` check the tracker's timestamp and refuse to guess a block from anything older than **Max tracker location age** (default 10 min, set in Configure) — you'll see a warning in the log instead of a wrong block silently getting saved. If that happens, wait a minute for the tracker to catch up and try again, or use manual entry.
 
 Any of these lands you in the **pick block → confirm side** flow: the car's GPS gives the block, and you tap the correct side on the dashboard (GPS can't tell which side of the street you're on). Some integrations only refresh location on ignition events or a manual "locate," so treat the block as approximate until you confirm it.
 
