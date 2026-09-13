@@ -55,11 +55,13 @@ button_card_templates:
     entity: sensor.car_parker_status
     show_state: false
     name: |
-      [[[ return variables.side; ]]]
+      [[[ return variables.side.replace(/([a-z])([A-Z])/, '$1 $2'); ]]]
     icon: |
       [[[
         const arrows = {North: 'mdi:arrow-up-bold', South: 'mdi:arrow-down-bold',
-                        East: 'mdi:arrow-right-bold', West: 'mdi:arrow-left-bold'};
+                        East: 'mdi:arrow-right-bold', West: 'mdi:arrow-left-bold',
+                        NorthEast: 'mdi:arrow-top-right', NorthWest: 'mdi:arrow-top-left',
+                        SouthEast: 'mdi:arrow-bottom-right', SouthWest: 'mdi:arrow-bottom-left'};
         return arrows[variables.side];
       ]]]
     styles:
@@ -261,6 +263,18 @@ views:
           - type: custom:button-card
             template: side_button
             variables: { side: West }
+          - type: custom:button-card
+            template: side_button
+            variables: { side: NorthEast }
+          - type: custom:button-card
+            template: side_button
+            variables: { side: NorthWest }
+          - type: custom:button-card
+            template: side_button
+            variables: { side: SouthEast }
+          - type: custom:button-card
+            template: side_button
+            variables: { side: SouthWest }
           - type: button
             name: Cancel
             icon: mdi:close

@@ -46,9 +46,25 @@ def ordinal(n: int) -> str:
     return f"{n}{suffix}"
 
 
+# SFMTA's blockside field uses these exact compound cardinals (e.g.
+# "NorthEast") for streets that don't run along the numbered-avenue grid.
+# str.title() alone would mangle "NorthEast" into "Northeast", so intercardinal
+# input is matched against this table regardless of spacing/casing/hyphens.
+_CANONICAL_SIDES = {
+    'north': 'North', 'south': 'South', 'east': 'East', 'west': 'West',
+    'northeast': 'NorthEast', 'ne': 'NorthEast',
+    'northwest': 'NorthWest', 'nw': 'NorthWest',
+    'southeast': 'SouthEast', 'se': 'SouthEast',
+    'southwest': 'SouthWest', 'sw': 'SouthWest',
+}
+
+
 def _normalize_side(side: Optional[str]) -> str:
     if not side:
         return "Unknown"
+    key = re.sub(r'[^a-z]', '', side.strip().lower())
+    if key in _CANONICAL_SIDES:
+        return _CANONICAL_SIDES[key]
     s = side.strip().title()
     return s or "Unknown"
 

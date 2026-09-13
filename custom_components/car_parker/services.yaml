@@ -81,6 +81,10 @@ confirm_side:
             - South
             - East
             - West
+            - NorthEast
+            - NorthWest
+            - SouthEast
+            - SouthWest
 
 park_manual:
   name: Park (manual entry)
@@ -112,6 +116,10 @@ park_manual:
             - South
             - East
             - West
+            - NorthEast
+            - NorthWest
+            - SouthEast
+            - SouthWest
 
 clear:
   name: Clear parking state
