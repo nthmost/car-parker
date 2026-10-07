@@ -392,6 +392,24 @@ views:
               - entity: input_text.car_parker_manual_text
                 name: Location
 
+      # ── Car tracker stale (hasn't updated in a while — informational) ───
+      - type: grid
+        visibility:
+          - condition: state
+            entity: binary_sensor.car_tracker_stale
+            state: 'on'
+        cards:
+          - type: markdown
+            content: |
+              <p style="text-align:center;font-size:15px;font-weight:700;color:#c89600;margin:8px 0">
+              📡 Car tracker hasn't updated in a while
+              </p>
+              <p style="text-align:center;opacity:0.8;margin:0">
+              {% set age = state_attr('sensor.car_parker_car_location', 'age_min') %}
+              Last heard from {{ age }} min ago — its reported position may
+              no longer reflect where the car actually is.
+              </p>
+
       # ── Car's live location (shown only when a car tracker is configured) ──
       # sensor.car_parker_car_location mirrors the device_tracker set in the
       # Car Parker options, so this stays generic — no per-user entity here.
@@ -413,4 +431,5 @@ views:
             content: >
               {% set s = 'sensor.car_parker_car_location' %} Currently in
               **{{ states(s) }}** — {{ state_attr(s, 'latitude') }},
-              {{ state_attr(s, 'longitude') }}
+              {{ state_attr(s, 'longitude') }} · updated
+              {{ state_attr(s, 'age_min') }} min ago

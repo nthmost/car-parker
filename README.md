@@ -97,7 +97,7 @@ Once configured, you get:
 - **A "Park at car" button** on the dashboard that calls `car_parker.park_at_car` — no arguments; it reads the configured tracker.
 - **Auto-park on ignition-off.** The second automation in `dashboard/car_parker.automation.yaml` fires when the car's vehicle-state sensor reaches `ignition_off` and calls `car_parker.park_at_car`. This is the freshest fix (the car refreshes its position when you shut it off). The only thing to customize is the trigger — replace `sensor.YOUR_CAR_vehicle_state` with your car's vehicle-state sensor.
 
-**A note on staleness:** cloud-relayed trackers (Subaru Starlink and similar) don't always update promptly — the fix `park_at_car`/`park_here` read may be hours old, from wherever the car last reported. Rather than refuse to park on an old fix, Car Parker always logs whatever the tracker currently says and instead watches the gap on an ongoing basis: `binary_sensor.car_away_from_parked_spot` turns on whenever the tracker's live position drifts more than 100m from the spot you've got on record as parked, so you find out your saved spot may be wrong without blocking the park itself.
+**A note on staleness:** cloud-relayed trackers (Subaru Starlink and similar) don't always update promptly — the fix `park_at_car`/`park_here` read may be hours old, from wherever the car last reported. Rather than refuse to park on an old fix, Car Parker always logs whatever the tracker currently says and instead watches two things on an ongoing basis: `binary_sensor.car_away_from_parked_spot` turns on when the tracker's live position drifts more than 100m from the spot on record as parked, and `binary_sensor.car_tracker_stale` turns on when the tracker itself hasn't updated in over 60 minutes — because a tracker that's simply stopped reporting shows zero drift and would otherwise look fine. Neither blocks the park itself; both just show up on the dashboard.
 
 Any of these lands you in the **pick block → confirm side** flow: the car's GPS gives the block, and you tap the correct side on the dashboard (GPS can't tell which side of the street you're on). Some integrations only refresh location on ignition events or a manual "locate," so treat the block as approximate until you confirm it.
 
@@ -118,6 +118,7 @@ Any of these lands you in the **pick block → confirm side** flow: the car's GP
 | `binary_sensor.move_car_now` | binary | On when urgency is `urgent` or `now` — use this for push alerts |
 | `binary_sensor.car_parker_needs_side_confirmation` | binary | On during the GPS confirmation flow |
 | `binary_sensor.car_away_from_parked_spot` | binary | On when the car tracker's live position is >100m from the saved parked spot (only present when a car tracker is set) |
+| `binary_sensor.car_tracker_stale` | binary | On when the car tracker hasn't updated in over 60 min — informational only, doesn't block parking (only present when a car tracker is set) |
 
 ---
 

@@ -45,6 +45,12 @@ DEFAULT_SOON_DAYS = 1  # sweep within this many days (but not urgent) → "soon"
 # without updating Car Parker, or the tracker's fix is just off.
 LOCATION_MISMATCH_THRESHOLD_M = 100
 
+# A car tracker that hasn't updated in this long trips
+# binary_sensor.car_tracker_stale — purely informational (it doesn't block
+# park_at_car), so you know a "no drift detected" reading might just mean
+# the tracker stopped reporting rather than that the car hasn't moved.
+STALE_TRACKER_THRESHOLD_MIN = 60
+
 # Urgency values
 URGENCY_SAFE = "safe"
 URGENCY_SOON = "soon"

@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_CAR_TRACKER,
@@ -98,6 +99,10 @@ class CarParkerCoordinator(DataUpdateCoordinator[dict]):
                     "latitude": tracker_lat,
                     "longitude": tracker_lng,
                     "gps_accuracy": st.attributes.get("gps_accuracy"),
+                    "last_updated": st.last_updated.isoformat(),
+                    "age_min": round(
+                        (dt_util.utcnow() - st.last_updated).total_seconds() / 60
+                    ),
                 }
                 # How far the tracker's current fix is from the spot we have
                 # on record as parked — the ongoing "did the car move since

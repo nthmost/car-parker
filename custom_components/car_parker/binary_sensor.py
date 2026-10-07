@@ -17,6 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     DOMAIN,
     LOCATION_MISMATCH_THRESHOLD_M,
+    STALE_TRACKER_THRESHOLD_MIN,
     STATUS_PARKED,
     STATUS_PENDING,
     URGENCY_NOW,
@@ -40,6 +41,11 @@ def _move_car_now(data: dict) -> bool:
 def _away_from_parked_spot(data: dict) -> bool:
     distance = (data.get("car_tracker") or {}).get("distance_from_parked_m")
     return distance is not None and distance > LOCATION_MISMATCH_THRESHOLD_M
+
+
+def _tracker_stale(data: dict) -> bool:
+    age_min = (data.get("car_tracker") or {}).get("age_min")
+    return age_min is not None and age_min > STALE_TRACKER_THRESHOLD_MIN
 
 
 SENSORS: tuple[tuple[BinarySensorEntityDescription, Callable[[dict], bool]], ...] = (
@@ -76,6 +82,15 @@ SENSORS: tuple[tuple[BinarySensorEntityDescription, Callable[[dict], bool]], ...
             icon="mdi:map-marker-alert",
         ),
         _away_from_parked_spot,
+    ),
+    (
+        BinarySensorEntityDescription(
+            key="car_tracker_stale",
+            name="Car tracker stale",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            icon="mdi:map-marker-off",
+        ),
+        _tracker_stale,
     ),
 )
 

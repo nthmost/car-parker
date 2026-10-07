@@ -255,4 +255,6 @@ class CarLocationSensor(CoordinatorEntity[CarParkerCoordinator], SensorEntity):
             "gps_accuracy": tracker.get("gps_accuracy"),
             "source": tracker.get("entity_id"),
             "distance_from_parked_m": tracker.get("distance_from_parked_m"),
+            "last_updated": tracker.get("last_updated"),
+            "age_min": tracker.get("age_min"),
         }
