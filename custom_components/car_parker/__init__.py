@@ -151,6 +151,18 @@ def _register_services(hass: HomeAssistant) -> None:
     if hass.services.has_service(DOMAIN, SERVICE_PARK_HERE):
         return
 
+    async def _notify_refusal(message: str) -> None:
+        await hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "Car Parker",
+                "message": message,
+                "notification_id": f"{DOMAIN}_refused",
+            },
+            blocking=False,
+        )
+
     async def _park_at_coords(
         coord,
         lat: float,
@@ -164,6 +176,7 @@ def _register_services(hass: HomeAssistant) -> None:
             )
             age = dt_util.utcnow() - last_updated
             if age > timedelta(minutes=max_age_min):
+                age_min = age.total_seconds() / 60
                 _LOGGER.warning(
                     "%s: tracker location is %.0f min old (max %s) — refusing "
                     "to guess a block from a stale fix. A tracker that only "
@@ -172,8 +185,14 @@ def _register_services(hass: HomeAssistant) -> None:
                     "fresh fix, raise the threshold in Car Parker options, "
                     "or use park_here instead.",
                     label,
-                    age.total_seconds() / 60,
+                    age_min,
                     max_age_min,
+                )
+                await _notify_refusal(
+                    f"**{label}** didn't park: the tracker's last fix is "
+                    f"{age_min:.0f} min old (max {max_age_min}). Wait for a "
+                    f"fresh fix, raise the threshold in Car Parker options, "
+                    f"or use **Park here** instead."
                 )
                 return
 
@@ -209,11 +228,19 @@ def _register_services(hass: HomeAssistant) -> None:
                 "park_at_car: no car tracker configured (set one in the "
                 "Car Parker options)"
             )
+            await _notify_refusal(
+                "**park_at_car** didn't park: no car tracker is configured. "
+                "Set one in the Car Parker options."
+            )
             return
         coords = _resolve_coords(hass, {ATTR_ENTITY_ID: tracker})
         if not coords:
             _LOGGER.warning(
                 "park_at_car: tracker %s has no latitude/longitude", tracker
+            )
+            await _notify_refusal(
+                f"**park_at_car** didn't park: tracker `{tracker}` has no "
+                f"latitude/longitude right now."
             )
             return
         lat, lng, last_updated = coords
