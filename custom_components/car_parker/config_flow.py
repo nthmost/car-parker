@@ -124,7 +124,7 @@ class CarParkerOptionsFlow(config_entries.OptionsFlow):
             ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=1,
-                    max=60,
+                    max=1440,
                     step=1,
                     unit_of_measurement="minutes",
                     mode=selector.NumberSelectorMode.BOX,
