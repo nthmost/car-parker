@@ -28,7 +28,7 @@ _LAT_M = 111_000.0                        # meters per degree latitude
 _LNG_M = 111_000.0 * math.cos(math.radians(_SF_LAT))  # meters per degree longitude
 
 
-def _dist_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+def dist_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     """Fast planar approximation of distance in metres (good to ~1% within SF)."""
     dlat = (lat2 - lat1) * _LAT_M
     dlng = (lng2 - lng1) * _LNG_M
@@ -169,7 +169,7 @@ class TimeLimitLookup:
         for feat in self._features:
             # Fast coarse filter using midpoint
             mlng, mlat = feat["midpoint"]
-            coarse = _dist_m(lat, lng, mlat, mlng)
+            coarse = dist_m(lat, lng, mlat, mlng)
             if coarse > self.MAX_DISTANCE_M * 3:
                 continue
             # Exact segment distance
@@ -245,7 +245,7 @@ class SweepingGeoLookup:
         candidates = []
         for feat in self._features:
             mlng, mlat = feat["midpoint"]
-            coarse = _dist_m(lat, lng, mlat, mlng)
+            coarse = dist_m(lat, lng, mlat, mlng)
             if coarse > self.MAX_DISTANCE_M * 3:
                 continue
             d = _nearest_dist_to_linestring(lng, lat, feat["coords"])
@@ -278,7 +278,7 @@ class SweepingGeoLookup:
         scored: List[Tuple[float, Dict]] = []
         for feat in self._features:
             mlng, mlat = feat["midpoint"]
-            coarse = _dist_m(lat, lng, mlat, mlng)
+            coarse = dist_m(lat, lng, mlat, mlng)
             if coarse > self.MAX_DISTANCE_M * 3:
                 continue
             d = _nearest_dist_to_linestring(lng, lat, feat["coords"])

@@ -19,7 +19,9 @@ from .const import (
     DEFAULT_SOON_DAYS,
     DEFAULT_URGENT_HOURS,
     DOMAIN,
+    STATUS_PARKED,
 )
+from .parking_geo import dist_m
 
 if TYPE_CHECKING:
     from .parking import ParkingManager
@@ -88,11 +90,25 @@ class CarParkerCoordinator(DataUpdateCoordinator[dict]):
         if tracker:
             st = self.hass.states.get(tracker)
             if st and st.attributes.get("latitude") is not None:
+                tracker_lat = st.attributes.get("latitude")
+                tracker_lng = st.attributes.get("longitude")
                 data["car_tracker"] = {
                     "entity_id": tracker,
                     "state": st.state,
-                    "latitude": st.attributes.get("latitude"),
-                    "longitude": st.attributes.get("longitude"),
+                    "latitude": tracker_lat,
+                    "longitude": tracker_lng,
                     "gps_accuracy": st.attributes.get("gps_accuracy"),
                 }
+                # How far the tracker's current fix is from the spot we have
+                # on record as parked — the ongoing "did the car move since
+                # we logged this?" check, independent of how that spot was
+                # saved or how fresh the fix was at the time.
+                if (
+                    data.get("status") == STATUS_PARKED
+                    and data.get("lat") is not None
+                    and data.get("lng") is not None
+                ):
+                    data["car_tracker"]["distance_from_parked_m"] = round(
+                        dist_m(data["lat"], data["lng"], tracker_lat, tracker_lng)
+                    )
         return data

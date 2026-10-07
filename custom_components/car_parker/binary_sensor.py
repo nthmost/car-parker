@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DOMAIN,
+    LOCATION_MISMATCH_THRESHOLD_M,
     STATUS_PARKED,
     STATUS_PENDING,
     URGENCY_NOW,
@@ -34,6 +35,11 @@ def _needs_side(data: dict) -> bool:
 
 def _move_car_now(data: dict) -> bool:
     return data.get("urgency") in (URGENCY_URGENT, URGENCY_NOW)
+
+
+def _away_from_parked_spot(data: dict) -> bool:
+    distance = (data.get("car_tracker") or {}).get("distance_from_parked_m")
+    return distance is not None and distance > LOCATION_MISMATCH_THRESHOLD_M
 
 
 SENSORS: tuple[tuple[BinarySensorEntityDescription, Callable[[dict], bool]], ...] = (
@@ -61,6 +67,15 @@ SENSORS: tuple[tuple[BinarySensorEntityDescription, Callable[[dict], bool]], ...
             icon="mdi:alert",
         ),
         _move_car_now,
+    ),
+    (
+        BinarySensorEntityDescription(
+            key="car_away_from_parked_spot",
+            name="Car away from parked spot",
+            device_class=BinarySensorDeviceClass.PROBLEM,
+            icon="mdi:map-marker-alert",
+        ),
+        _away_from_parked_spot,
     ),
 )
 

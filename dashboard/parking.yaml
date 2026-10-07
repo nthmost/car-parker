@@ -298,6 +298,24 @@ views:
               Street sweeping is happening or starts very soon.
               </p>
 
+      # ── PARKED: location mismatch (car tracker drifted from saved spot) ─
+      - type: grid
+        visibility:
+          - condition: state
+            entity: binary_sensor.car_away_from_parked_spot
+            state: 'on'
+        cards:
+          - type: markdown
+            content: |
+              <p style="text-align:center;font-size:17px;font-weight:700;color:#c89600;margin:8px 0">
+              ⚠️ Car tracker doesn't match this spot
+              </p>
+              <p style="text-align:center;opacity:0.8;margin:0">
+              {% set d = state_attr('sensor.car_parker_car_location', 'distance_from_parked_m') %}
+              The car's live GPS is {{ d }}m from where this is saved as parked —
+              it may have moved since you logged this spot.
+              </p>
+
       # ── PARKED: location + sweep countdown ────────────────────────────
       - type: grid
         visibility:
